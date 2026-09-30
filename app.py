@@ -132,7 +132,7 @@ def ping():
             'packet_loss_percent': (
                 float(loss.group(1)) if loss else None
             ),
-            'packets_sent': 4,
+            'packets_sent': count,
             'packets_received': len(times),
             'min_ms': min(times) if times else None,
             'avg_ms': (
@@ -212,35 +212,56 @@ def traceroute():
         hops = []
 
         for line in output.splitlines():
+            # Match start of line with hop number
             match = re.match(r'^\s*(\d+)\s+(.*)$', line)
-
             if not match:
                 continue
 
             number = int(match.group(1))
             rest = match.group(2)
-
-            addresses = re.findall(
-                r'(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])|\*',
-                rest
-            )
-
-            times = [
-                float(x) for x in re.findall(
-                    r'<?(\d+(?:\.\d+)?)\s*ms',
-                    rest,
-                    re.I
-                )
-            ]
-
+            
+            # Times are usually float followed by ms
+            times = [float(x) for x in re.findall(r'<?(\d+(?:\.\d+)?)\s*ms', rest, re.I)]
+            
+            # For timeouts, rest might be "* * *"
+            if rest.replace('*', '').strip() == '':
+                hops.append({
+                    'hop': number,
+                    'address': '*',
+                    'hostname': None,
+                    'times_ms': [],
+                    'timeout': True,
+                    'status': 'Timeout'
+                })
+                continue
+                
+            # Try to extract hostname and IP
+            # Usually format is: hostname (ip) time ms
+            # Or just: ip time ms
+            host_ip_match = re.search(r'([\w\.-]+)\s+\(([\d\.]+)\)', rest)
+            hostname = None
+            address = None
+            
+            if host_ip_match:
+                hostname = host_ip_match.group(1)
+                address = host_ip_match.group(2)
+                if hostname == address:
+                    hostname = None
+            else:
+                ip_match = re.search(r'(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])', rest)
+                if ip_match:
+                    address = ip_match.group(0)
+                    
+            if not address and '*' in rest:
+                address = '*'
+                
             hops.append({
                 'hop': number,
-                'address': next(
-                    (a for a in addresses if a != '*'),
-                    None
-                ),
+                'address': address,
+                'hostname': hostname,
                 'times_ms': times,
-                'timeout': '*' in rest and not times
+                'timeout': not bool(times),
+                'status': 'Responding' if times else 'Timeout'
             })
 
         return jsonify(
