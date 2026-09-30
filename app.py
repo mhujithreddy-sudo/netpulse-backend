@@ -54,6 +54,16 @@ def health():
         platform=platform.system()
     )
 
+@app.get('/api/debug')
+def debug_os():
+    import subprocess
+    try:
+        res = subprocess.run(['cat', '/etc/os-release'], capture_output=True, text=True)
+        return res.stdout
+    except Exception as e:
+        return str(e)
+
+
 
 @app.post('/api/ping')
 def ping():
