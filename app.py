@@ -75,10 +75,17 @@ def ping():
             error='Enter a valid hostname or IP address.'
         ), 400
 
+    try:
+        data = request.get_json(silent=True) or {}
+        count = int(data.get('count', 4))
+        count = max(1, min(20, count))
+    except (ValueError, TypeError):
+        count = 4
+
     if platform.system() == 'Windows':
-        command = ['ping', '-n', '4', '-w', '2000', target]
+        command = ['ping', '-n', str(count), '-w', '2000', target]
     else:
-        command = ['ping', '-c', '4', '-W', '2', target]
+        command = ['ping', '-c', str(count), '-W', '2', target]
 
     if not shutil.which(command[0]):
         return jsonify(
@@ -172,13 +179,13 @@ def traceroute():
     if platform.system() == 'Windows':
         executable = 'tracert'
         command = [
-            'tracert', '-d', '-h', '15',
+            'tracert', '-h', '15',
             '-w', '1500', target
         ]
     else:
         executable = 'traceroute'
         command = [
-            'traceroute', '-n', '-m', '15',
+            'traceroute', '-m', '15',
             '-w', '2', target
         ]
 
