@@ -1,0 +1,5 @@
+services:
+  - type: web
+    name: netpulse-backend
+    env: docker
+    plan: free
